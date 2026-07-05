@@ -24,3 +24,9 @@ class TestStorageHelpers(unittest.TestCase):
         self.assertEqual(get_s3_key("/files/a/b.png"), "a/b.png")
         # Already a bare key: unchanged.
         self.assertEqual(get_s3_key("a/b.png"), "a/b.png")
+
+    def test_get_s3_key_only_strips_exact_prefix(self):
+        # Similar-but-not-matching prefixes must be left intact (removeprefix
+        # only strips the exact leading segment, matching the startswith guard).
+        self.assertEqual(get_s3_key("/filesystem/a.png"), "/filesystem/a.png")
+        self.assertEqual(get_s3_key("/private/filesx/a.png"), "/private/filesx/a.png")

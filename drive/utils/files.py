@@ -424,7 +424,7 @@ def storage_key(file_url):
     # reset to an absolute path (Path("a") / "/b" == Path("/b")).
     file_url = str(file_url)
     if file_url.startswith(S3_URL_PREFIX):
-        return unquote(file_url[len(S3_URL_PREFIX) :])
+        return unquote(file_url.removeprefix(S3_URL_PREFIX))
     return file_url.lstrip("/")
 
 
@@ -432,7 +432,7 @@ def get_s3_key(file_url):
     prefixes = ["/private/files/", "/files/"]
     for prefix in prefixes:
         if file_url.startswith(prefix):
-            return file_url[len(prefix) :]
+            return file_url.removeprefix(prefix)
     return file_url
 
 
