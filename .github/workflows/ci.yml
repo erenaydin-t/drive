@@ -26,14 +26,15 @@ jobs:
 
     services:
       mariadb:
-        image: mariadb:10.8
+        image: mariadb:10.6
         env:
           MARIADB_ROOT_PASSWORD: root
         ports:
           - 3306:3306
+        # mysqladmin ping needs no auth, so it stays reliable with a root password set.
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=5s --health-timeout=5s --health-retries=15
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
       redis-cache:
         image: redis:7-alpine
         ports:
