@@ -323,9 +323,29 @@ def trash(
     )
 
 
-ALLOWED_SORT_FIELDS = {
-    "name", "file_name", "file_size", "file_type", "creation", "modified", "owner",
+# Maps the sort tokens the frontend sends (DriveToolBar.vue) to real File columns.
+# The Name option sends "title" and the Type option sends "mime_type", neither of
+# which is a raw column name, so they must be translated rather than whitelisted.
+SORT_FIELD_MAP = {
+    "title": "file_name",
+    "file_name": "file_name",
+    "mime_type": "mime_type",
+    "file_type": "file_type",
+    "file_size": "file_size",
+    "owner": "owner",
+    "creation": "creation",
+    "modified": "modified",
+    "name": "name",
 }
+
+
+def resolve_sort_field(order_by: str) -> str:
+    """Resolve a client sort token to a real, safe column.
+
+    Anything not explicitly mapped falls back to "modified" so an unknown or
+    hostile key can never reach the query builder and break the DB (issue #643).
+    """
+    return SORT_FIELD_MAP.get(order_by, "modified")
 
 
 def get_query_data(
@@ -344,8 +364,7 @@ def get_query_data(
     """
     Runs all the necessary commands to obtain files in the structure expected by Drive frontend.
     """
-    if order_by not in ALLOWED_SORT_FIELDS:
-        order_by = "modified"
+    order_by = resolve_sort_field(order_by)
 
     # Filter by team
     if team and team != "all":
