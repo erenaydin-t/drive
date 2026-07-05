@@ -101,12 +101,15 @@ def sync_from_disk(team: str):
 
 def auto_delete_from_trash():
     days_before = (date.today() - timedelta(days=30)).isoformat()
+    # pluck a flat list of names: delete_entities expects names, not row dicts,
+    # and throws on an empty list, so only call it when there is something to purge.
     result = frappe.db.get_all(
         "File",
         filters={"status": STATUS_TRASHED, "file_modified": ["<", days_before]},
-        fields=["name"],
+        pluck="name",
     )
-    delete_entities(result)
+    if result:
+        delete_entities(result)
 
 
 def clear_deleted_files():
@@ -114,8 +117,8 @@ def clear_deleted_files():
     result = frappe.db.get_all(
         "File",
         filters={"status": STATUS_REMOVED, "modified": ["<", days_before]},
-        fields=["name"],
+        pluck="name",
     )
-    for entity in result:
-        doc = frappe.get_doc("File", entity, ignore_permissions=True)
+    for name in result:
+        doc = frappe.get_doc("File", name, ignore_permissions=True)
         doc.delete()
