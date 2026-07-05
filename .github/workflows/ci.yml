@@ -18,7 +18,7 @@ env:
   FRAPPE_BRANCH: version-16
   # Frappe v16 requires Python >=3.14,<3.15.
   PYTHON_VERSION: "3.14"
-  NODE_VERSION: "22"
+  NODE_VERSION: "24"
 
 jobs:
   test:
