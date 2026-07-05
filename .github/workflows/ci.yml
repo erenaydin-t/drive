@@ -98,6 +98,9 @@ jobs:
         working-directory: /home/runner/frappe-bench
         run: |
           bench --site test_site set-config allow_tests true
+          # test_api.py is a Cypress helper whose decorator runs at import time and
+          # throws unless this flag is set; test discovery imports every test_*.py.
+          bench --site test_site set-config enable_ui_tests 1
           bench --site test_site run-tests --app drive
 
   release:
