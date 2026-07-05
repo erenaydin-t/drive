@@ -1,0 +1,144 @@
+name: CI
+
+# Runs the complete test suite on every push to main/develop.
+# On main, if tests pass AND drive/__init__.py __version__ changed, cut a release.
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # ERPNext v16 rides on Frappe Framework v16. If the version-16 branch is not yet
+  # cut upstream, set this to "develop" (the v16 pre-release line).
+  FRAPPE_BRANCH: version-16
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:10.8
+        env:
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=15
+      redis-cache:
+        image: redis:7-alpine
+        ports:
+          - 13000:6379
+      redis-queue:
+        image: redis:7-alpine
+        ports:
+          - 11000:6379
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg wkhtmltopdf mariadb-client
+
+      - name: Install bench
+        run: pip install frappe-bench
+
+      - name: Init bench
+        run: |
+          bench init \
+            --frappe-branch "$FRAPPE_BRANCH" \
+            --python "$(which python)" \
+            --skip-assets \
+            ~/frappe-bench
+
+      - name: Install app into bench
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench get-app drive "$GITHUB_WORKSPACE"
+          bench setup requirements --dev
+
+      - name: Create test site
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench set-config -g redis_cache    redis://localhost:13000
+          bench set-config -g redis_queue    redis://localhost:11000
+          bench set-config -g redis_socketio redis://localhost:11000
+          bench new-site test_site \
+            --db-root-password root \
+            --admin-password admin \
+            --no-mariadb-socket
+          bench --site test_site install-app drive
+
+      - name: Run tests
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site test_site set-config allow_tests true
+          bench --site test_site run-tests --app drive
+
+  release:
+    name: Release
+    needs: test
+    # Only from main, only on real pushes (not workflow_dispatch), and only when
+    # the version string actually changed in this push.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect version change
+        id: ver
+        run: |
+          extract() { grep -oP '__version__\s*=\s*"\K[^"]+' <<< "$1"; }
+          NEW=$(extract "$(cat drive/__init__.py)")
+          OLD=$(extract "$(git show HEAD~1:drive/__init__.py 2>/dev/null || true)")
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          if [ "$NEW" != "$OLD" ] && [ -n "$NEW" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Version changed: '$OLD' -> '$NEW'"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged ('$NEW'); no release."
+          fi
+
+      - name: Create release
+        if: steps.ver.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.ver.outputs.new }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+            exit 0
+          fi
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            --target main

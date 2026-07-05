@@ -12,3 +12,6 @@ experiments/*
 *log.json
 .env
 build/
+
+# Local project memory — must never be committed or pushed
+CLAUDE.md
