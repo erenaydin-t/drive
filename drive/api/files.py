@@ -303,7 +303,7 @@ def get_file_content(entity_name: str, trigger_download: bool = False, token: st
 
     if file.file_type == "Document" or is_site_file(file):
         frappe.local.response["type"] = "redirect"
-        frappe.local.response["location"] = file.file_url if is_site_file(file) else ("/drive/w/" + file.name)
+        frappe.local.response["location"] = file.file_url if is_site_file(file) else f"/drive/w/{file.name}"
         return
 
     return get_file_internal(file, trigger_download)
@@ -347,7 +347,7 @@ def stream_file_content(entity_name: str):
     size = entity.file_size
     byte1, byte2 = 0, None
 
-    m = re.search("(\d+)-(\d*)", range_header)
+    m = re.search(r"(\d+)-(\d*)", range_header)
     g = m.groups()
 
     if g[0]:
@@ -374,7 +374,7 @@ def stream_file_content(entity_name: str):
             data = f.read(length)
 
     res = Response(data, 206, mimetype=entity.mime_type, direct_passthrough=True)
-    res.headers.add("Content-Range", "bytes {0}-{1}/{2}".format(byte1, byte1 + length - 1, size))
+    res.headers.add("Content-Range", f"bytes {byte1}-{byte1 + length - 1}/{size}")
     return res
 
 
@@ -763,7 +763,7 @@ def redirect_to_original(file_id: str):
         frappe.throw("This is not an attachment", ValueError)
 
     frappe.local.response["type"] = "redirect"
-    frappe.local.response["location"] = "/drive/g/" + file.content_docname
+    frappe.local.response["location"] = f"/drive/g/{file.content_docname}"
 
 
 @frappe.whitelist()

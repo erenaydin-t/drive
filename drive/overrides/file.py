@@ -428,7 +428,7 @@ def after_upload_file(doc):
         if not save_folder.exists():
             save_folder.mkdir(parents=True)
 
-        doc.file_url = "/" + str(file_path)
+        doc.file_url = f"/{file_path}"
         doc.mime_type = mimemapper.get_mime_type(str(temp_path), native_first=False)
         doc.file_type = get_file_type(doc.mime_type)
         doc.folder = get_home_folder(personal_team)["name"]

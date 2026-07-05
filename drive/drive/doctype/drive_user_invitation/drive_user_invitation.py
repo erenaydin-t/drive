@@ -101,5 +101,5 @@ class DriveUserInvitation(Document):
         if frappe.session.user == "Guest":
             frappe.local.login_manager.login_as(self.email)
 
-        frappe.local.response["location"] = "/drive/t/" + self.team
-        return "/drive/t/" + self.team
+        frappe.local.response["location"] = f"/drive/t/{self.team}"
+        return f"/drive/t/{self.team}"

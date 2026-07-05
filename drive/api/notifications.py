@@ -5,7 +5,7 @@ from frappe.model.document import Document
 
 def get_link(entity):
     if entity.file_type == 'Document':
-        return "/writer/w/" + entity.name
+        return f"/writer/w/{entity.name}"
     type_ = {True: "f", bool(entity.is_folder): "d"}
     return entity.file_url if entity.file_type == 'Link' else f"/drive/{type_.get(True)}/{entity.name}/"
 

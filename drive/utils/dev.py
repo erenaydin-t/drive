@@ -8,13 +8,7 @@ def timing(f):
         ts = time()
         result = f(*args, **kw)
         te = time()
-        print(
-            " %2.4f s: func:%r "
-            % (
-                te - ts,
-                f.__name__,
-            )
-        )
+        print(f" {te - ts:2.4f} s: func:{f.__name__!r} ")
         return result
 
     return wrap
